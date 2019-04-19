@@ -68,9 +68,10 @@ int main(){
     u3.account_id = u2.account_id;
     createUser(&u3);
 
-    printUser(&u1);
-    printUser(&u2);
-    printUser(&u3);
+    struct User users[MAXRECORDS];
+    int count = getUsers(users, MAXRECORDS);
+
+    printUsers(users, count);
 
     close(account_fd);
     close(transaction_fd);

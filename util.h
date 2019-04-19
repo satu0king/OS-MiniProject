@@ -220,7 +220,4 @@ void printTransaction(struct Transaction * t) {
 }
 
 
-
-
-
 #endif /* end of include guard:  */

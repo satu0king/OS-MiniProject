@@ -194,7 +194,6 @@ int createUser(struct User *user){
 
 }
 
-
 int getUser(char email[], struct User *user){
 
     int fd = open(USER_DB_PATH, O_RDONLY);
@@ -219,7 +218,6 @@ int getUser(char email[], struct User *user){
     return -1;
 }
 
-
 int getUserById(int user_id, struct User *user){
 
     int fd = open(USER_DB_PATH, O_RDONLY);
@@ -243,8 +241,6 @@ int getUserById(int user_id, struct User *user){
     close(fd);
     return -1;
 }
-
-
 
 int getAccount(int account_id, struct Account *account){
 
