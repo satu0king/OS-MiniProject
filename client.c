@@ -35,15 +35,15 @@ int login(int *session_id, enum AccountType *loginType) {
     int sd = connectSocket(PORTNO);
     if(sd == -1) exit(0);
 
-    // char email[100];
-    // char password[20];
-    // printf("Enter Email Id: ");
-    // scanf("%s", email);
-    // printf("Enter Password: ");
-    // scanf("%s", password);
+    char email[100];
+    char password[20];
+    printf("Enter Email Id: ");
+    scanf("%s", email);
+    printf("Enter Password: ");
+    scanf("%s", password);
 
-    char email[100] = "admin@gmail.com";
-    char password[20] = "1234qwe";
+    // char email[100] = "admin@gmail.com";
+    // char password[20] = "1234qwe";
     // char email[100] = "satviksr@gmail.com";
     // char password[20] = "1234qwe";
 
