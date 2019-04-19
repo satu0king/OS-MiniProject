@@ -9,6 +9,8 @@
 #define TRANSACTION_DB_PATH "DB/transaction_db.dat"
 #define METADATA_DB_PATH "DB/metadata.dat"
 #define MAXTRANSACTIONS 100
+#define MAXRECORDS 100
+#define DELAY 0
 
 #include <time.h>
 
@@ -21,7 +23,7 @@ enum Action{
     AddAccount,
     DeleteAccount,
     ModifyAccount,
-    SearchAccount,
+    AdminAllUsers,
     Exit
 };
 
@@ -80,10 +82,19 @@ struct TransactionRequest {
     enum TransactionType transactionType;
 };
 
-struct AddUserRequest {
+struct TransactionResponse{
+    enum Status status;
+    struct Transaction transaction;
+};
+
+struct UserRequest {
     struct User user;
 };
 
+struct UserResponse {
+    enum Status status;
+    struct User user;
+};
 
 struct LoginRequest{
     char email[100];
@@ -100,6 +111,10 @@ struct LoginResponse{
     enum AccountType loginType;
 };
 
+struct DeleteUserRequest{
+    int user_id;
+};
+
 struct BalanceEnquiryResponse{
     enum Status status;
     double balance;
@@ -113,36 +128,99 @@ struct Metadata{
 
 struct ViewDetailsResponse{
     enum Status status;
-    int transactionDetailsCount;
+    int transaction_details_count;
 };
 
-void printUser(struct User * user){
-    printf("Name: %s\n", user->name);
-    printf("Email: %s\n", user->email);
-    printf("AccountType: %d\n", (int)user->accountType);
-    printf("User Id: %d\n", (int)user->id);
-    printf("Account Id: %d\n", (int)user->account_id);
+struct ViewAllUsersResponse{
+    enum Status status;
+    int user_count;
+};
+
+void repeat_char(unsigned int cnt, char ch) {
+    char buffer[cnt + 1];
+    /*assuming you want to repeat the c character 30 times*/
+    memset(buffer,ch,cnt);
+    buffer[cnt]='\0';
+    printf("%s\n",buffer);
 }
 
-void printAccount(struct Account * account){
-    printf("Balance: %lf\n", account->balance);
-    printf("Account Id: %d\n", (int)account->id);
+void printUsers(struct User * u, int count){
+    int len = 119;
+    repeat_char(len, '-');
+    printf("| %15s | %-20s | %-20s | %-15s | %-15s | %15s |\n",
+    "User Id",
+    "Name",
+    "Email",
+    "Account Type",
+    "Password",
+    "Account Id"
+    );
+    repeat_char(len, '-');
+    for(int i = 0; i<count; i++)
+        printf("| %15d | %-20s | %-20s | %-15s | %-15s | %15d |\n",
+            u[i].id,
+            u[i].name,
+            u[i].email,
+            u[i].accountType == Normal ?  "Normal" : "Admin",
+            u[i].password,
+            u[i].account_id );
+    repeat_char(len, '-');
 }
 
-void printTransaction(struct Transaction * transaction) {
-    printf("Transaction Id: %d\n", transaction->id);
-    printf("Account Id: %d\n", transaction->account_id);
-    printf("User Id: %d\n", transaction->user_id);
-    printf("User Name: %s\n", transaction->name);
-
-    char time[100];
-    struct tm *t = localtime(&(transaction->date));
-    strftime(time, sizeof(time)-1, "%d %m %Y %H:%M", t);
-    printf("Date of Transaction: %s\n", time);
-    printf("TransactionType: %d\n", (int)transaction->transactionType);
-    printf("Opening Balance: %lf\n", transaction->opening_balance);
-    printf("Closing Balance: %lf\n", transaction->closing_balance);
+void printUser(struct User * u){
+    printUsers(u, 1);
 }
+
+void printAccounts(struct Account *a, int count){
+    int len = 42;
+    repeat_char(len, '-');
+    printf("| %15s | %20s |\n",
+    "Account Id",
+    "Balance"
+    );
+    repeat_char(len, '-');
+    for(int i = 0; i<count; i++)
+        printf("| %15d | %20.2lf |\n",
+            a[i].id,
+            a[i].balance );
+    repeat_char(len, '-');
+}
+
+void printAccount(struct Account *a){
+    printAccounts(a, 1);
+}
+
+
+void printTransactions(struct Transaction *t, int count){
+
+    int len = 96;
+    repeat_char(len, '-');
+    printf("| %15s | %15s | %-20s | %15s | %15s |\n",
+    "Transaction Id",
+    "User Id",
+    "Name",
+    "Opening Balance",
+    "Closing Balance"
+    );
+    repeat_char(len, '-');
+    for(int i=0; i<count; i++){
+        printf("| %15d | %15d | %-20s | %15.2lf | %15.2lf |\n",
+            t[i].id,
+            t[i].user_id,
+            t[i].name,
+            t[i].opening_balance,
+            t[i].closing_balance );
+    }
+    repeat_char(len, '-');
+}
+
+
+void printTransaction(struct Transaction * t) {
+    printTransactions(t, 1);
+}
+
+
+
 
 
 #endif /* end of include guard:  */

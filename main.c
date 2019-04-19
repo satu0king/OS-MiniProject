@@ -24,8 +24,7 @@ struct Session{
 };
 
 struct Session sessions[SESSION_COUNT];
-
-
+pthread_mutex_t sessions_lock;
 
 void killServer(){
     NEW_LINE;
@@ -90,7 +89,7 @@ bool validatePassword(struct LoginRequest request){
     return false;
 }
 
-void login(int nsd){
+void loginController(int nsd){
 
     char requestType[] = "Login";
 
@@ -117,6 +116,7 @@ void login(int nsd){
         getUser(request.email, &user);
         int session_id;
 
+        pthread_mutex_lock(&sessions_lock);
         for(session_id = 0; session_id < SESSION_COUNT; session_id++){
             if(!sessions[session_id].isActive)break;
         }
@@ -130,6 +130,7 @@ void login(int nsd){
             response.session_id = session_id;
             response.loginType = user.accountType;
         }
+        pthread_mutex_unlock(&sessions_lock);
     }
 
     write(nsd, &response, sizeof(response));
@@ -143,7 +144,7 @@ void login(int nsd){
 
 
 }
-void exitSession(int nsd, int session_id){
+void exitSessionController(int nsd, int session_id){
 
     char requestType[] = "User: Exit";
 
@@ -155,7 +156,9 @@ void exitSession(int nsd, int session_id){
 
     struct Response response = {.status = Success};
 
+    pthread_mutex_lock(&sessions_lock);
     sessions[session_id].isActive = false;
+    pthread_mutex_unlock(&sessions_lock);
 
     write(nsd, &response, sizeof(response));
 
@@ -167,7 +170,7 @@ void exitSession(int nsd, int session_id){
 
 }
 
-void balanceEnquiry(int nsd, int session_id){
+void balanceEnquiryController(int nsd, int session_id){
 
     char requestType[] = "Balance Enquiry";
     NEW_LINE;
@@ -199,11 +202,11 @@ void balanceEnquiry(int nsd, int session_id){
 
 }
 
-void addAccount(int nsd, int session_id){
+void addAccountController(int nsd, int session_id){
 
     char requestType[] = "Admin: Add Account";
 
-    struct AddUserRequest request;
+    struct UserRequest request;
     NEW_LINE;
     printf("<-- %s Request Start-->\n", requestType);
     read(nsd, &request, sizeof(request));
@@ -214,7 +217,7 @@ void addAccount(int nsd, int session_id){
     printf("<-- %s Request End-->\n", requestType);
     NEW_LINE;
 
-    struct Response response;
+    struct UserResponse response;
 
     if(sessions[session_id].user.accountType == Admin){
         int status = createUser(&request.user);
@@ -223,6 +226,7 @@ void addAccount(int nsd, int session_id){
             printf("User created: \n");
             printf("User Id: %d \n", request.user.id);
             printf("Account Id: %d \n", request.user.account_id);
+            response.user = request.user;
         }
         else
             response.status = Failure;
@@ -242,7 +246,57 @@ void addAccount(int nsd, int session_id){
 
 }
 
-void transaction(int nsd, int session_id){
+void modifyAccountController(int nsd, int session_id){
+
+    char requestType[] = "Admin: Modify Account";
+
+    struct UserRequest request;
+    NEW_LINE;
+    printf("<-- %s Request Start-->\n", requestType);
+    read(nsd, &request, sizeof(request));
+    printf("Admin Email: %s\n", sessions[session_id].user.email);
+    printf("Email: %s\n", request.user.email);
+    printf("Name: %s\n", request.user.name);
+    printf("SessionId: %d\n", session_id);
+    printf("<-- %s Request End-->\n", requestType);
+    NEW_LINE;
+
+    struct UserResponse response;
+
+    if(sessions[session_id].user.accountType == Admin){
+
+        struct User temp;
+        getUserById(request.user.id, &temp);
+        request.user.account_id = temp.account_id;
+        printUser(&request.user);
+
+        int status = saveUser(&request.user);
+        if(status == 0){
+            response.status = Success;
+            printf("User Modified: \n");
+            printf("User Id: %d \n", request.user.id);
+            printf("Account Id: %d \n", request.user.account_id);
+            response.user = request.user;
+        }
+        else
+            response.status = Failure;
+    }
+    else {
+        response.status = Unauthorized;
+    }
+
+    write(nsd, &response, sizeof(response));
+
+    NEW_LINE;
+    printf("<-- %s Response Start-->\n", requestType);
+    printf("Status: %d\n", response.status);
+    printf("<-- %s Response End-->\n", requestType);
+    NEW_LINE;
+
+
+}
+
+void transactionController(int nsd, int session_id){
 
     char requestType[] = "User: Transaction";
 
@@ -257,7 +311,7 @@ void transaction(int nsd, int session_id){
     printf("<-- %s Request End-->\n", requestType);
     NEW_LINE;
 
-    struct Response response;
+    struct TransactionResponse response;
 
     int status;
     int account_id = sessions[session_id].user.account_id;
@@ -290,6 +344,7 @@ void transaction(int nsd, int session_id){
         };
         strcpy(transaction.name, sessions[session_id].user.name);
         createTransaction(&transaction);
+        response.transaction = transaction;
     }
     else {
         response.status = Failure;
@@ -305,8 +360,7 @@ void transaction(int nsd, int session_id){
 
 }
 
-
-void changePassword(int nsd, int session_id){
+void changePasswordController(int nsd, int session_id){
 
     char requestType[] = "User: Change Password";
 
@@ -343,11 +397,10 @@ void changePassword(int nsd, int session_id){
 
 }
 
-void viewDetails(int nsd, int session_id){
+void viewDetailsController(int nsd, int session_id){
 
     char requestType[] = "User: View Details";
 
-    struct ChangePasswordRequest request;
     NEW_LINE;
     printf("<-- %s Request Start-->\n", requestType);
     printf("Email: %s\n", sessions[session_id].user.email);
@@ -366,7 +419,7 @@ void viewDetails(int nsd, int session_id){
 
     struct ViewDetailsResponse response ={
         .status = Success,
-        .transactionDetailsCount = count
+        .transaction_details_count = count
     };
 
     write(nsd, &response, sizeof(response));
@@ -387,7 +440,89 @@ void viewDetails(int nsd, int session_id){
 
 }
 
+void getAllUsersController(int nsd, int session_id){
 
+    char requestType[] = "Admin: View All Users";
+
+    NEW_LINE;
+    printf("<-- %s Request Start-->\n", requestType);
+    printf("Email: %s\n", sessions[session_id].user.email);
+    printf("SessionId: %d\n", session_id);
+    printf("<-- %s Request End-->\n", requestType);
+    NEW_LINE;
+
+
+    struct ViewAllUsersResponse response;
+    struct User users[MAXRECORDS];
+
+    if(sessions[session_id].user.accountType == Admin){
+        struct User user;
+        getUser(sessions[session_id].user.email, &user);
+        struct Account account;
+        getAccount(user.account_id, &account);
+
+
+        int count = getUsers(users, MAXRECORDS);
+
+        response.status = Success;
+        response.user_count = count;
+    }
+    else {
+        response.status = Unauthorized;
+    }
+
+    write(nsd, &response, sizeof(response));
+    if(response.status == Success){
+        for(int i=0; i<response.user_count; i++)
+            write(nsd, users + i, sizeof(struct User));
+    }
+
+    NEW_LINE;
+    printf("<-- %s Response Start-->\n", requestType);
+    printf("Status: %d\n", response.status);
+    printf("<-- %s Response End-->\n", requestType);
+    NEW_LINE;
+
+}
+
+void deleteAccountController(int nsd, int session_id){
+
+    char requestType[] = "Admin: Delete User";
+
+    struct DeleteUserRequest request;
+    NEW_LINE;
+    printf("<-- %s Request Start-->\n", requestType);
+    printf("Email: %s\n", sessions[session_id].user.email);
+    read(nsd, &request, sizeof(request));
+    printf("SessionId: %d\n", session_id);
+    printf("User Id: %d\n", request.user_id);
+    printf("<-- %s Request End-->\n", requestType);
+    NEW_LINE;
+
+
+    struct Response response;
+
+    if(sessions[session_id].user.accountType == Admin){
+        if (~deleteUser(request.user_id)){
+            response.status = Success;
+        }
+        else {
+            response.status = Failure;
+        }
+    }
+    else {
+        response.status = Unauthorized;
+    }
+
+    write(nsd, &response, sizeof(response));
+
+    NEW_LINE;
+    printf("<-- %s Response Start-->\n", requestType);
+    printf("Status: %d\n", response.status);
+    printf("<-- %s Response End-->\n", requestType);
+    NEW_LINE;
+
+}
 
 void* handle_request(void *socketDescriptor){
 
@@ -400,33 +535,33 @@ void* handle_request(void *socketDescriptor){
 
     switch(header.action) {
         case Login:
-            login(nsd);break;
+            loginController(nsd);break;
         case BalanceEnquiry:
-            balanceEnquiry(nsd, header.session_id);break;
+            balanceEnquiryController(nsd, header.session_id);break;
         case AddAccount:
-            addAccount(nsd, header.session_id);break;
+            addAccountController(nsd, header.session_id);break;
         case Transaction:
-            transaction(nsd, header.session_id);break;
+            transactionController(nsd, header.session_id);break;
         case PasswordChange:
-            changePassword(nsd, header.session_id);break;
+            changePasswordController(nsd, header.session_id);break;
         case Exit:
-            exitSession(nsd, header.session_id);break;
+            exitSessionController(nsd, header.session_id);break;
         case Viewdetails:
-            viewDetails(nsd, header.session_id);break;
+            viewDetailsController(nsd, header.session_id);break;
+        case AdminAllUsers:
+            getAllUsersController(nsd, header.session_id);break;
+        case DeleteAccount:
+            deleteAccountController(nsd, header.session_id);break;
+        case ModifyAccount:
+            modifyAccountController(nsd, header.session_id);break;
         default:
             printf("Error unknown action: %d\n", (int)header.action);
     }
 
-    printf("Closing socked %d\n", nsd);
     close(nsd);
 }
 
 void setup(){
-    // int fd = creat("pid", 0744);
-    // char pid[10];
-    // sprintf(pid, "%d", getpid());
-    // write(fd, pid, strlen(pid));
-    // close(fd);
 
     printf("Starting Server\n");
     sd = createSocket(PORTNO);
@@ -439,6 +574,8 @@ void setup(){
         sessions[i].isActive = false;
 
     signal(SIGINT, handle_my);
+
+    pthread_mutex_init(&sessions_lock, NULL);
 
 
 }
@@ -455,6 +592,7 @@ int main(){
         pthread_t thread_id;
         // handle_request(&nsd);
         pthread_create(&thread_id, NULL, &handle_request, &nsd);
+        pthread_join(thread_id, NULL);
     }
 
     close(sd);

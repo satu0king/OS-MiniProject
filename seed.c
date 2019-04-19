@@ -3,6 +3,8 @@
 #include <unistd.h>
 
 #include <fcntl.h>
+#include <stdlib.h>
+#include <string.h>
 #include "util.h"
 #include "database.h"
  #include <sys/stat.h>
@@ -65,6 +67,10 @@ int main(){
     createUser(&u2);
     u3.account_id = u2.account_id;
     createUser(&u3);
+
+    printUser(&u1);
+    printUser(&u2);
+    printUser(&u3);
 
     close(account_fd);
     close(transaction_fd);

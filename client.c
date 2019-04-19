@@ -43,7 +43,7 @@ int login(int *session_id, enum AccountType *loginType) {
     // scanf("%s", password);
 
     char email[100] = "admin@gmail.com";
-    char password[20] = "admin@123";
+    char password[20] = "1234qwe";
     // char email[100] = "satviksr@gmail.com";
     // char password[20] = "1234qwe";
 
@@ -77,14 +77,17 @@ int login(int *session_id, enum AccountType *loginType) {
 
 int getNextOperation(){
     NEW_LINE;
-    printf("1) Balance Enquiry\n");
-    printf("2) Add New User\n");
-    printf("3) Add New Joint User\n");
-    printf("4) Deposit amount\n");
-    printf("5) Withdraw amount\n");
-    printf("6) Change Password\n");
-    printf("7) Exit\n");
-    printf("8) View Details\n");
+    printf("[1]  (Admin) Add New User\n");
+    printf("[2]  (Admin) Add New Joint User\n");
+    printf("[3]  (Admin) View All Users\n");
+    printf("[4]  (Admin) Delete User\n");
+    printf("[5]  (Admin) Modify User\n");
+    printf("[6]  (User) Balance Enquiry\n");
+    printf("[7]  (User) Deposit amount\n");
+    printf("[8]  (User) Withdraw amount\n");
+    printf("[9]  (User) Change Password\n");
+    printf("[10] (User) View Details\n");
+    printf("[11] (User) Exit\n");
     printf("Enter operation Id: ");
     int operation;
     scanf("%d", &operation);
@@ -146,6 +149,17 @@ void exitSession(int session_id, int sd){
     }
 }
 
+void getUserInformationFromUI(struct User *user){
+    printf("Enter Username: ");
+    scanf("%s", user->name);
+    printf("Enter Email Id: ");
+    scanf("%s", user->email);
+    printf("Enter Password: ");
+    scanf("%s", user->password);
+    printf("Enter AccountType (Normal: %d, Admin: %d): ", Normal, Admin);
+    scanf("%d", (int *)&user->accountType);
+}
+
 void addUser(int session_id, int sd, bool joint){
 
     printf("Add User in process...\n" );
@@ -155,27 +169,89 @@ void addUser(int session_id, int sd, bool joint){
         .account_id = -1
     };
 
-    printf("Enter Username: ");
-    scanf("%s", user.name);
-    printf("Enter Email Id: ");
-    scanf("%s", user.email);
-    printf("Enter Password: ");
-    scanf("%s", user.password);
-    printf("Enter AccountType (Normal: %d, Admin: %d): ", Normal, Admin);
-    scanf("%d", (int *)&user.accountType);
+    getUserInformationFromUI(&user);
 
     if(joint){
         printf("Enter Joint account id ");
         scanf("%d", &user.account_id);
     }
 
-    //
     struct Header header = {
         .action = AddAccount,
         .session_id = session_id,
     };
 
-    struct AddUserRequest request = {.user = user};
+    struct UserRequest request = {.user = user};
+
+    write(sd, &header, sizeof(header));
+    write(sd, &request, sizeof(request));
+
+    struct UserResponse response;
+    read(sd, &response, sizeof(response));
+
+    if(response.status == Unauthorized){
+        printf("Unauthorized\n");
+    }
+    else if (response.status == Failure){
+        printf("Server Failure\n");
+    }
+    else {
+        printf("Success\n");
+        printUser(&response.user);
+    }
+}
+
+void modifyUser(int session_id, int sd){
+
+    printf("Modify User in process...\n" );
+
+    struct User user = {
+        .id = -1,
+        .account_id = -1
+    };
+
+    printf("Enter User id ");
+    scanf("%d", &user.id);
+
+    getUserInformationFromUI(&user);
+
+    struct Header header = {
+        .action = ModifyAccount,
+        .session_id = session_id,
+    };
+
+    struct UserRequest request = {.user = user};
+
+    write(sd, &header, sizeof(header));
+    write(sd, &request, sizeof(request));
+
+    struct UserResponse response;
+    read(sd, &response, sizeof(response));
+
+    if(response.status == Unauthorized){
+        printf("Unauthorized\n");
+    }
+    else if (response.status == Failure){
+        printf("Server Failure\n");
+    }
+    else {
+        printf("Success\n");
+        printUser(&response.user);
+    }
+}
+
+void deleteUser(int session_id, int sd){
+
+    printf("Delete User in process...\n" );
+
+    struct Header header = {
+        .action = DeleteAccount,
+        .session_id = session_id,
+    };
+
+    struct DeleteUserRequest request;
+    printf("Enter Account Id: ");
+    scanf("%d", &request.user_id);
 
     write(sd, &header, sizeof(header));
     write(sd, &request, sizeof(request));
@@ -211,7 +287,7 @@ void deposit(int session_id, int sd){
     write(sd, &header, sizeof(header));
     write(sd, &request, sizeof(request));
 
-    struct Response response;
+    struct TransactionResponse response;
     read(sd, &response, sizeof(response));
 
     if(response.status == Unauthorized){
@@ -222,6 +298,7 @@ void deposit(int session_id, int sd){
     }
     else {
         printf("Success\n");
+        printTransaction(&response.transaction);
     }
 }
 
@@ -242,7 +319,7 @@ void withdraw(int session_id, int sd){
     write(sd, &header, sizeof(header));
     write(sd, &request, sizeof(request));
 
-    struct Response response;
+    struct TransactionResponse response;
     read(sd, &response, sizeof(response));
 
     if(response.status == Unauthorized){
@@ -253,6 +330,7 @@ void withdraw(int session_id, int sd){
     }
     else {
         printf("Success\n");
+        printTransaction(&response.transaction);
     }
 }
 
@@ -306,9 +384,9 @@ void viewDetails(int session_id, int sd){
     struct Account account;
     read(sd, &account, sizeof(account));
 
-    struct Transaction transactions[response.transactionDetailsCount];
-    for(int i =0; i<response.transactionDetailsCount; i++)
-        read(sd, transactions + i, sizeof(struct Transaction));
+    struct Transaction transactions[response.transaction_details_count];
+    for(int i =0; i<response.transaction_details_count; i++)
+        read(sd, transactions + response.transaction_details_count - i -1, sizeof(struct Transaction));
 
     NEW_LINE;
     printUser(&user);
@@ -317,10 +395,13 @@ void viewDetails(int session_id, int sd){
     printAccount(&account);
 
     NEW_LINE;
-    for(int i=0; i<response.transactionDetailsCount; i++){
-        printTransaction(transactions + i);
-        NEW_LINE;
-    }
+    // for(int i=0; i<response.transaction_details_count; i++){
+    //     printTransaction(transactions + i);
+    //     NEW_LINE;
+    // }
+    //
+
+    printTransactions(transactions, response.transaction_details_count);
 
 
     if(response.status == Unauthorized){
@@ -334,14 +415,43 @@ void viewDetails(int session_id, int sd){
     }
 }
 
+void viewAllUsers(int session_id, int sd){
+
+    printf("View details in process...\n");
+
+    struct Header header = {
+        .action = AdminAllUsers,
+        .session_id = session_id,
+    };
+
+    write(sd, &header, sizeof(header));
+
+    struct ViewAllUsersResponse response;
+    read(sd, &response, sizeof(response));
+
+    if(response.status == Unauthorized){
+        printf("Unauthorized\n");
+    }
+    else if (response.status == Failure){
+        printf("Server Failure\n");
+    }
+    else {
+        printf("Success\n");
+        struct User users[response.user_count];
+        for(int i = 0; i<response.user_count; i++)
+            read(sd, users + i, sizeof(struct User));
+
+        NEW_LINE;
+        printUsers(users, response.user_count);
+    }
+}
+
 int main(){
 
     printf("Client started with pid %d\n", getpid());
     int session_id = -1;
     enum AccountType loginType;
     login(&session_id, &loginType);
-
-
 
     if (session_id == -1)return 0;
 
@@ -350,22 +460,28 @@ int main(){
         int sd = connectSocket(PORTNO);
         if(sd == -1) exit(0);
         switch(operation){
-            case 1:
-                balanceEnquiry(session_id, sd);break;
-            case 2:
-                addUser(session_id, sd, false);break;
-            case 3:
-                addUser(session_id, sd, true);break;
-            case 4:
-                deposit(session_id, sd);break;
-            case 5:
-                withdraw(session_id, sd);break;
             case 6:
-                changePassword(session_id, sd);break;
+                balanceEnquiry(session_id, sd);break;
+            case 1:
+                addUser(session_id, sd, false);break;
+            case 2:
+                addUser(session_id, sd, true);break;
             case 7:
-                exitSession(session_id, sd);break;
+                deposit(session_id, sd);break;
             case 8:
+                withdraw(session_id, sd);break;
+            case 9:
+                changePassword(session_id, sd);break;
+            case 11:
+                exitSession(session_id, sd);break;
+            case 10:
                 viewDetails(session_id, sd);break;
+            case 3:
+                viewAllUsers(session_id, sd);break;
+            case 4:
+                deleteUser(session_id, sd);break;
+            case 5:
+                modifyUser(session_id, sd);break;
         }
         close(sd);
     }

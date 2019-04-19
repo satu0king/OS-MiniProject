@@ -29,6 +29,7 @@ int createAccount(struct Account *account){
     struct Metadata metadata;
 
     lock(metadata_fd, F_WRLCK, 0, 0);
+        sleep(DELAY);
         read(metadata_fd, &metadata, sizeof(metadata));
         account->id = metadata.account_id;
         metadata.account_id++;
@@ -55,6 +56,7 @@ int createTransaction(struct Transaction *transaction){
     struct Metadata metadata;
 
     lock(metadata_fd, F_WRLCK, 0, 0);
+        sleep(DELAY);
         read(metadata_fd, &metadata, sizeof(metadata));
         transaction->id = metadata.transaction_id;
         metadata.transaction_id++;
@@ -83,6 +85,7 @@ int getTransactions(int account_id, struct Transaction transactions[], int maxco
     int len;
     int count = 0;
     lock(fd, F_RDLCK, 0, 0);
+    sleep(DELAY);
     struct Transaction transaction;
     while(len = read(fd, &transaction, sizeof(transaction))){
         if (transaction.account_id == account_id){
@@ -96,7 +99,55 @@ int getTransactions(int account_id, struct Transaction transactions[], int maxco
 
 }
 
+int getUsers(struct User users[], int maxcount){
 
+    int fd = open(USER_DB_PATH, O_RDONLY);
+    if(fd == -1){
+        perror("open() ");
+        return 0;
+    }
+
+    int len;
+    int count = 0;
+    lock(fd, F_RDLCK, 0, 0);
+    sleep(DELAY);
+    struct User user;
+    while(len = read(fd, &user, sizeof(user))){
+        if (~user.id){
+            users[count++] = user;
+        }
+        if(count == maxcount) break;
+    }
+    lock(fd, F_UNLCK, 0, 0);
+    close(fd);
+    return count;
+
+}
+
+int getAccounts(struct Account accounts[], int maxcount){
+
+    int fd = open(ACCOUNT_DB_PATH, O_RDONLY);
+    if(fd == -1){
+        perror("open() ");
+        return 0;
+    }
+
+    int len;
+    int count = 0;
+    lock(fd, F_RDLCK, 0, 0);
+    sleep(DELAY);
+    struct Account account;
+    while(len = read(fd, &account, sizeof(account))){
+        if (~account.id){
+            accounts[count++] = account;
+        }
+        if(count == maxcount) break;
+    }
+    lock(fd, F_UNLCK, 0, 0);
+    close(fd);
+    return count;
+
+}
 
 int createUser(struct User *user){
 
@@ -117,6 +168,7 @@ int createUser(struct User *user){
         metadata.user_id++;
         toBeginning(metadata_fd);
         write(metadata_fd, &metadata, sizeof(metadata));
+        sleep(DELAY);
     lock(metadata_fd, F_UNLCK, 0, 0);
 
     if (user->account_id == -1){
@@ -153,8 +205,9 @@ int getUser(char email[], struct User *user){
     int len;
 
     lock(fd, F_RDLCK, 0, 0);
+    sleep(DELAY);
     while(len = read(fd, user, sizeof(*user))){
-        if (strcmp(user->email, email) == 0){
+        if (strcmp(user->email, email) == 0 && ~user->id){
             close(fd);
             return 0;
         }
@@ -165,6 +218,32 @@ int getUser(char email[], struct User *user){
     close(fd);
     return -1;
 }
+
+
+int getUserById(int user_id, struct User *user){
+
+    int fd = open(USER_DB_PATH, O_RDONLY);
+    if(fd == -1){
+        perror("open() ");
+    }
+
+    int len;
+
+    lock(fd, F_RDLCK, 0, 0);
+    sleep(DELAY);
+    while(len = read(fd, user, sizeof(*user))){
+        if (user->id == user_id && ~user->id){
+            close(fd);
+            return 0;
+        }
+
+    }
+    lock(fd, F_UNLCK, 0, 0);
+
+    close(fd);
+    return -1;
+}
+
 
 
 int getAccount(int account_id, struct Account *account){
@@ -189,7 +268,6 @@ int getAccount(int account_id, struct Account *account){
     close(fd);
     return -1;
 }
-
 
 int changeAccountBalance(int account_id, float amount){
 
@@ -230,7 +308,6 @@ int changeAccountBalance(int account_id, float amount){
     return -1;
 }
 
-
 int saveUser(struct User * user){
 
     struct User temp;
@@ -252,8 +329,42 @@ int saveUser(struct User * user){
         int pos = lseek(fd, -sizeof(temp), SEEK_CUR);
         int recordNo = pos/sizeof(temp);
         lock(fd, F_WRLCK, sizeof(temp), recordNo);
-            printf("%s %d\n", user->password, pos);
             write(fd, user, sizeof(*user));
+            sleep(DELAY);
+        lock(fd, F_UNLCK, sizeof(temp), recordNo);
+
+        close(fd);
+        return 0;
+
+    }
+
+    close(fd);
+    return -1;
+}
+
+int deleteUser(int user_id){
+
+    struct User temp;
+
+    int fd = open(USER_DB_PATH, O_RDWR);
+    if(fd == -1){
+        perror("open() ");
+        return -1;
+    }
+
+    int len;
+
+    while(len = read(fd, &temp, sizeof(temp))){
+        if (temp.id == user_id)break;
+    }
+
+    if( len!=0 ){
+        temp.id = -1;
+        int pos = lseek(fd, -sizeof(temp), SEEK_CUR);
+        int recordNo = pos/sizeof(temp);
+        lock(fd, F_WRLCK, sizeof(temp), recordNo);
+            write(fd, &temp, sizeof(temp));
+            sleep(DELAY);
         lock(fd, F_UNLCK, sizeof(temp), recordNo);
 
         close(fd);
