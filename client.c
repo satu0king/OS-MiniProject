@@ -84,6 +84,7 @@ int getNextOperation(){
     printf("5) Withdraw amount\n");
     printf("6) Change Password\n");
     printf("7) Exit\n");
+    printf("8) View Details\n");
     printf("Enter operation Id: ");
     int operation;
     scanf("%d", &operation);
@@ -193,16 +194,17 @@ void addUser(int session_id, int sd, bool joint){
     }
 }
 
-void deposit(int session_id, int sd) {
+void deposit(int session_id, int sd){
 
     printf("Deposit in process...\n" );
 
     struct Header header = {
-        .action = Deposit,
+        .action = Transaction,
         .session_id = session_id,
     };
 
-    struct DepositRequest request;
+    struct TransactionRequest request;
+    request.transactionType = Deposit;
 
     printf("Enter amount: ");
     scanf("%lf", &request.amount);
@@ -228,11 +230,12 @@ void withdraw(int session_id, int sd){
     printf("Withdraw in process...\n" );
 
     struct Header header = {
-        .action = Withdraw,
+        .action = Transaction,
         .session_id = session_id,
     };
 
-    struct WithdrawRequest request;
+    struct TransactionRequest request;
+    request.transactionType = Withdraw;
 
     printf("Enter amount: ");
     scanf("%lf", &request.amount);
@@ -283,6 +286,54 @@ void changePassword(int session_id, int sd){
     }
 }
 
+void viewDetails(int session_id, int sd){
+
+    printf("View details in process...\n");
+
+    struct Header header = {
+        .action = Viewdetails,
+        .session_id = session_id,
+    };
+
+    write(sd, &header, sizeof(header));
+
+    struct ViewDetailsResponse response;
+    read(sd, &response, sizeof(response));
+
+    struct User user;
+    read(sd, &user, sizeof(user));
+
+    struct Account account;
+    read(sd, &account, sizeof(account));
+
+    struct Transaction transactions[response.transactionDetailsCount];
+    for(int i =0; i<response.transactionDetailsCount; i++)
+        read(sd, transactions + i, sizeof(struct Transaction));
+
+    NEW_LINE;
+    printUser(&user);
+
+    NEW_LINE;
+    printAccount(&account);
+
+    NEW_LINE;
+    for(int i=0; i<response.transactionDetailsCount; i++){
+        printTransaction(transactions + i);
+        NEW_LINE;
+    }
+
+
+    if(response.status == Unauthorized){
+        printf("Unauthorized\n");
+    }
+    else if (response.status == Failure){
+        printf("Server Failure\n");
+    }
+    else {
+        printf("Success\n");
+    }
+}
+
 int main(){
 
     printf("Client started with pid %d\n", getpid());
@@ -313,6 +364,8 @@ int main(){
                 changePassword(session_id, sd);break;
             case 7:
                 exitSession(session_id, sd);break;
+            case 8:
+                viewDetails(session_id, sd);break;
         }
         close(sd);
     }

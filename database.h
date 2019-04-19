@@ -46,6 +46,56 @@ int createAccount(struct Account *account){
 
 }
 
+int createTransaction(struct Transaction *transaction){
+
+    if (transaction->id!=-1 )return -1;
+
+    int metadata_fd = open(METADATA_DB_PATH, O_RDWR);
+
+    struct Metadata metadata;
+
+    lock(metadata_fd, F_WRLCK, 0, 0);
+        read(metadata_fd, &metadata, sizeof(metadata));
+        transaction->id = metadata.transaction_id;
+        metadata.transaction_id++;
+        toBeginning(metadata_fd);
+        write(metadata_fd, &metadata, sizeof(metadata));
+    lock(metadata_fd, F_UNLCK, 0, 0);
+
+
+    int transaction_fd = open(TRANSACTION_DB_PATH, O_APPEND | O_WRONLY);
+    write(transaction_fd, transaction, sizeof(*transaction));
+
+    close(metadata_fd);
+    close(transaction_fd);
+    return 0;
+
+}
+
+int getTransactions(int account_id, struct Transaction transactions[], int maxcount){
+
+    int fd = open(TRANSACTION_DB_PATH, O_RDONLY);
+    if(fd == -1){
+        perror("open() ");
+        return 0;
+    }
+
+    int len;
+    int count = 0;
+    lock(fd, F_RDLCK, 0, 0);
+    struct Transaction transaction;
+    while(len = read(fd, &transaction, sizeof(transaction))){
+        if (transaction.account_id == account_id){
+            transactions[count++] = transaction;
+        }
+        if(count == maxcount) break;
+    }
+    lock(fd, F_UNLCK, 0, 0);
+    close(fd);
+    return count;
+
+}
+
 
 
 int createUser(struct User *user){
@@ -179,6 +229,7 @@ int changeAccountBalance(int account_id, float amount){
     close(fd);
     return -1;
 }
+
 
 int saveUser(struct User * user){
 

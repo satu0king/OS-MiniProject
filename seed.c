@@ -5,8 +5,12 @@
 #include <fcntl.h>
 #include "util.h"
 #include "database.h"
+ #include <sys/stat.h>
 
 int main(){
+
+    mkdir(BASE_PATH, 0744);
+
     int account_fd = creat(ACCOUNT_DB_PATH, 0744);
     int user_fd = creat(USER_DB_PATH, 0744);
     int transaction_fd = creat(TRANSACTION_DB_PATH, 0744);

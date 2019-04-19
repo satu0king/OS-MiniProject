@@ -3,15 +3,18 @@
 
 #define PORTNO 9000
 
-#define USER_DB_PATH "user_db.dat"
-#define ACCOUNT_DB_PATH "account_db.dat"
-#define TRANSACTION_DB_PATH "transaction_db.dat"
-#define METADATA_DB_PATH "metadata.dat"
+#define BASE_PATH "DB"
+#define USER_DB_PATH "DB/user_db.dat"
+#define ACCOUNT_DB_PATH "DB/account_db.dat"
+#define TRANSACTION_DB_PATH "DB/transaction_db.dat"
+#define METADATA_DB_PATH "DB/metadata.dat"
+#define MAXTRANSACTIONS 100
+
+#include <time.h>
 
 enum Action{
     Login,
-    Deposit,
-    Withdraw,
+    Transaction,
     BalanceEnquiry,
     PasswordChange,
     Viewdetails,
@@ -56,27 +59,31 @@ struct Account {
     double balance;
 };
 
+enum TransactionType {
+    Deposit,
+    Withdraw
+};
+
 struct Transaction {
     int account_id;
+    int user_id;
     char name[100];
-    char date[100];
+    time_t date;
     double opening_balance;
     double closing_balance;
-    char message[100];
+    enum TransactionType transactionType;
     int id;
+};
+
+struct TransactionRequest {
+    double amount;
+    enum TransactionType transactionType;
 };
 
 struct AddUserRequest {
     struct User user;
 };
 
-struct DepositRequest {
-    double amount;
-};
-
-struct WithdrawRequest {
-    double amount;
-};
 
 struct LoginRequest{
     char email[100];
@@ -104,6 +111,38 @@ struct Metadata{
     int transaction_id;
 };
 
+struct ViewDetailsResponse{
+    enum Status status;
+    int transactionDetailsCount;
+};
+
+void printUser(struct User * user){
+    printf("Name: %s\n", user->name);
+    printf("Email: %s\n", user->email);
+    printf("AccountType: %d\n", (int)user->accountType);
+    printf("User Id: %d\n", (int)user->id);
+    printf("Account Id: %d\n", (int)user->account_id);
+}
+
+void printAccount(struct Account * account){
+    printf("Balance: %lf\n", account->balance);
+    printf("Account Id: %d\n", (int)account->id);
+}
+
+void printTransaction(struct Transaction * transaction) {
+    printf("Transaction Id: %d\n", transaction->id);
+    printf("Account Id: %d\n", transaction->account_id);
+    printf("User Id: %d\n", transaction->user_id);
+    printf("User Name: %s\n", transaction->name);
+
+    char time[100];
+    struct tm *t = localtime(&(transaction->date));
+    strftime(time, sizeof(time)-1, "%d %m %Y %H:%M", t);
+    printf("Date of Transaction: %s\n", time);
+    printf("TransactionType: %d\n", (int)transaction->transactionType);
+    printf("Opening Balance: %lf\n", transaction->opening_balance);
+    printf("Closing Balance: %lf\n", transaction->closing_balance);
+}
 
 
 #endif /* end of include guard:  */

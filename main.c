@@ -9,11 +9,10 @@
 #include <stdbool.h>
 #include <string.h>
 #include <pthread.h>
+#include <time.h>
 #include "util.h"
 #include "database.h"
 
-#define ACCOUNT_DB_PATH "account_db.dat"
-#define TRANSACTION_DB_PATH "transaction_db.dat"
 #define SESSION_COUNT 100
 #define NEW_LINE printf("\n")
 
@@ -166,7 +165,6 @@ void exitSession(int nsd, int session_id){
     printf("<-- %s Response End-->\n", requestType);
     NEW_LINE;
 
-
 }
 
 void balanceEnquiry(int nsd, int session_id){
@@ -200,19 +198,6 @@ void balanceEnquiry(int nsd, int session_id){
 
 
 }
-
-// int createAccount(struct Account account){
-//     int account_fd = open(ACCOUNT_DB_PATH, O_APPEND | O_WRONLY);
-//     if(account_fd == -1){
-//         perror("open() ");
-//         return account_fd;
-//     }
-//     int ret = write(account_fd, &account, sizeof(account));
-//     perror("write: ");
-//
-//     close(account_fd);
-//     return 0;
-// }
 
 void addAccount(int nsd, int session_id){
 
@@ -257,31 +242,54 @@ void addAccount(int nsd, int session_id){
 
 }
 
+void transaction(int nsd, int session_id){
 
+    char requestType[] = "User: Transaction";
 
-void deposit(int nsd, int session_id){
-
-    char requestType[] = "User: Deposit";
-
-    struct DepositRequest request;
+    struct TransactionRequest request;
     NEW_LINE;
     printf("<-- %s Request Start-->\n", requestType);
     read(nsd, &request, sizeof(request));
     printf("Email: %s\n", sessions[session_id].user.email);
     printf("SessionId: %d\n", session_id);
     printf("Amount: %lf\n", request.amount);
+    printf("Transaction Type: %d\n", (int) request.transactionType);
     printf("<-- %s Request End-->\n", requestType);
     NEW_LINE;
 
     struct Response response;
 
-    int status = changeAccountBalance(
-        sessions[session_id].user.account_id,
-        request.amount
-        );
+    int status;
+    int account_id = sessions[session_id].user.account_id;
+    double amount = request.amount;
+    double opening_balance, closing_balance;
+    struct Account account;
+
+    getAccount(account_id, &account);
+    opening_balance = account.balance;
+
+    if(request.transactionType == Deposit)
+      status = changeAccountBalance(account_id, amount);
+    else if(request.transactionType = Withdraw)
+      status = changeAccountBalance(account_id, -amount);
+    else status = -1;
+
+    getAccount(account_id, &account);
+    closing_balance = account.balance;
 
     if(status == 0){
         response.status = Success;
+        struct Transaction transaction = {
+            .account_id = account_id,
+            .user_id = sessions[session_id].user.id,
+            .opening_balance = opening_balance,
+            .closing_balance = closing_balance,
+            .transactionType = request.transactionType,
+            .id = -1,
+            .date = time(NULL)
+        };
+        strcpy(transaction.name, sessions[session_id].user.name);
+        createTransaction(&transaction);
     }
     else {
         response.status = Failure;
@@ -297,43 +305,7 @@ void deposit(int nsd, int session_id){
 
 }
 
-void withdraw(int nsd, int session_id){
 
-    char requestType[] = "User: Withdraw";
-
-    struct DepositRequest request;
-    NEW_LINE;
-    printf("<-- %s Request Start-->\n", requestType);
-    read(nsd, &request, sizeof(request));
-    printf("Email: %s\n", sessions[session_id].user.email);
-    printf("SessionId: %d\n", session_id);
-    printf("Amount: %lf\n", request.amount);
-    printf("<-- %s Request End-->\n", requestType);
-    NEW_LINE;
-
-    struct Response response;
-
-    int status = changeAccountBalance(
-        sessions[session_id].user.account_id,
-        -request.amount
-        );
-
-    if(status == 0){
-        response.status = Success;
-    }
-    else {
-        response.status = Failure;
-    }
-
-    write(nsd, &response, sizeof(response));
-
-    NEW_LINE;
-    printf("<-- %s Response Start-->\n", requestType);
-    printf("Status: %d\n", response.status);
-    printf("<-- %s Response End-->\n", requestType);
-    NEW_LINE;
-
-}
 void changePassword(int nsd, int session_id){
 
     char requestType[] = "User: Change Password";
@@ -371,6 +343,50 @@ void changePassword(int nsd, int session_id){
 
 }
 
+void viewDetails(int nsd, int session_id){
+
+    char requestType[] = "User: View Details";
+
+    struct ChangePasswordRequest request;
+    NEW_LINE;
+    printf("<-- %s Request Start-->\n", requestType);
+    printf("Email: %s\n", sessions[session_id].user.email);
+    printf("SessionId: %d\n", session_id);
+    printf("<-- %s Request End-->\n", requestType);
+    NEW_LINE;
+
+
+    struct User user;
+    getUser(sessions[session_id].user.email, &user);
+    struct Account account;
+    getAccount(user.account_id, &account);
+
+    struct Transaction transactions[MAXTRANSACTIONS];
+    int count = getTransactions(user.account_id, transactions, MAXTRANSACTIONS);
+
+    struct ViewDetailsResponse response ={
+        .status = Success,
+        .transactionDetailsCount = count
+    };
+
+    write(nsd, &response, sizeof(response));
+    if (response.status == Success){
+
+        write(nsd, &user, sizeof(user));
+        write(nsd, &account, sizeof(account));
+
+        for(int i = 0; i < count; i++)
+                write(nsd, &transactions[i], sizeof(transactions[i]));
+    }
+
+    NEW_LINE;
+    printf("<-- %s Response Start-->\n", requestType);
+    printf("Status: %d\n", response.status);
+    printf("<-- %s Response End-->\n", requestType);
+    NEW_LINE;
+
+}
+
 
 
 void* handle_request(void *socketDescriptor){
@@ -389,14 +405,14 @@ void* handle_request(void *socketDescriptor){
             balanceEnquiry(nsd, header.session_id);break;
         case AddAccount:
             addAccount(nsd, header.session_id);break;
-        case Deposit:
-            deposit(nsd, header.session_id);break;
-        case Withdraw:
-            withdraw(nsd, header.session_id);break;
+        case Transaction:
+            transaction(nsd, header.session_id);break;
         case PasswordChange:
             changePassword(nsd, header.session_id);break;
         case Exit:
             exitSession(nsd, header.session_id);break;
+        case Viewdetails:
+            viewDetails(nsd, header.session_id);break;
         default:
             printf("Error unknown action: %d\n", (int)header.action);
     }
@@ -415,7 +431,7 @@ void setup(){
     printf("Starting Server\n");
     sd = createSocket(PORTNO);
     if (sd !=-1){
-        printf("Server started on port number %d and process id %s\n", PORTNO, pid);
+        printf("Server started on port number %d and process id %d\n", PORTNO, getpid());
     }
     NEW_LINE;
 
