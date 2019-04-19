@@ -4,8 +4,10 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <netinet/in.h>
 #include "util.h"
+
 
 #define NEW_LINE printf("\n")
 
@@ -28,7 +30,7 @@ int connectSocket(int portno){
 
 }
 
-int login(enum AccountType loginType){
+int login(int *session_id, enum AccountType *loginType) {
 
     int sd = connectSocket(PORTNO);
     if(sd == -1) exit(0);
@@ -53,9 +55,7 @@ int login(enum AccountType loginType){
 
     write(sd, &header, sizeof(header));
 
-    struct LoginRequest request = {
-        .loginType = loginType
-    };
+    struct LoginRequest request;
 
     strcpy(request.email, email);
     strcpy(request.password, password);
@@ -68,15 +68,22 @@ int login(enum AccountType loginType){
         printf("Unauthorized\n");
     }
     else {
+        *session_id = response.session_id;
+        *loginType = response.loginType;
         printf("Logged in with session id %d\n", response.session_id);
     }
-    return response.session_id;
+    return 0;
 }
 
 int getNextOperation(){
     NEW_LINE;
     printf("1) Balance Enquiry\n");
-    printf("2) Add Account\n");
+    printf("2) Add New User\n");
+    printf("3) Add New Joint User\n");
+    printf("4) Deposit amount\n");
+    printf("5) Withdraw amount\n");
+    printf("6) Change Password\n");
+    printf("7) Exit\n");
     printf("Enter operation Id: ");
     int operation;
     scanf("%d", &operation);
@@ -85,9 +92,7 @@ int getNextOperation(){
 
 }
 
-void balanceEnquiry(int session_id){
-    int sd = connectSocket(PORTNO);
-    if(sd == -1) exit(0);
+void balanceEnquiry(int session_id, int sd){
 
     printf("Balance Enquiry in process...\n" );
 
@@ -110,35 +115,157 @@ void balanceEnquiry(int session_id){
     else {
         printf("Balance:  %f\n", response.balance);
     }
+
+    close(sd);
 }
 
-void addAccount(int session_id){
+void exitSession(int session_id, int sd){
 
-    printf("Add Account in process...\n" );
+    printf("Exit in process...\n" );
 
-    struct Account account;
+    struct Header header = {
+        .action = Exit,
+        .session_id = session_id,
+    };
+
+    write(sd, &header, sizeof(header));
+
+    struct Response response;
+    read(sd, &response, sizeof(response));
+
+    if(response.status == Unauthorized){
+        printf("Unauthorized\n");
+    }
+    else if (response.status == Failure){
+        printf("Server Failure\n");
+    }
+    else {
+        printf("Success\n");
+        exit(0);
+    }
+}
+
+void addUser(int session_id, int sd, bool joint){
+
+    printf("Add User in process...\n" );
+
+    struct User user = {
+        .id = -1,
+        .account_id = -1
+    };
 
     printf("Enter Username: ");
-    scanf("%s", account.name);
+    scanf("%s", user.name);
     printf("Enter Email Id: ");
-    scanf("%s", account.email);
+    scanf("%s", user.email);
     printf("Enter Password: ");
-    scanf("%s", account.password);
-    printf("Enter Balance: ");
-    scanf("%lf", &account.balance);
+    scanf("%s", user.password);
     printf("Enter AccountType (Normal: %d, Admin: %d): ", Normal, Admin);
-    scanf("%d", (int *)&account.accountType);
+    scanf("%d", (int *)&user.accountType);
 
-    int sd = connectSocket(PORTNO);
-    if(sd == -1) exit(0);
+    if(joint){
+        printf("Enter Joint account id ");
+        scanf("%d", &user.account_id);
+    }
 
+    //
     struct Header header = {
         .action = AddAccount,
         .session_id = session_id,
     };
 
-    struct AddAccountRequest request = {.account = account};
+    struct AddUserRequest request = {.user = user};
 
+    write(sd, &header, sizeof(header));
+    write(sd, &request, sizeof(request));
+
+    struct Response response;
+    read(sd, &response, sizeof(response));
+
+    if(response.status == Unauthorized){
+        printf("Unauthorized\n");
+    }
+    else if (response.status == Failure){
+        printf("Server Failure\n");
+    }
+    else {
+        printf("Success\n");
+    }
+}
+
+void deposit(int session_id, int sd) {
+
+    printf("Deposit in process...\n" );
+
+    struct Header header = {
+        .action = Deposit,
+        .session_id = session_id,
+    };
+
+    struct DepositRequest request;
+
+    printf("Enter amount: ");
+    scanf("%lf", &request.amount);
+    write(sd, &header, sizeof(header));
+    write(sd, &request, sizeof(request));
+
+    struct Response response;
+    read(sd, &response, sizeof(response));
+
+    if(response.status == Unauthorized){
+        printf("Unauthorized\n");
+    }
+    else if (response.status == Failure){
+        printf("Server Failure\n");
+    }
+    else {
+        printf("Success\n");
+    }
+}
+
+void withdraw(int session_id, int sd){
+
+    printf("Withdraw in process...\n" );
+
+    struct Header header = {
+        .action = Withdraw,
+        .session_id = session_id,
+    };
+
+    struct WithdrawRequest request;
+
+    printf("Enter amount: ");
+    scanf("%lf", &request.amount);
+    write(sd, &header, sizeof(header));
+    write(sd, &request, sizeof(request));
+
+    struct Response response;
+    read(sd, &response, sizeof(response));
+
+    if(response.status == Unauthorized){
+        printf("Unauthorized\n");
+    }
+    else if (response.status == Failure){
+        printf("Server Failure\n");
+    }
+    else {
+        printf("Success\n");
+    }
+}
+
+void changePassword(int session_id, int sd){
+
+    printf("Change Password in process...\n" );
+
+    struct Header header = {
+        .action = PasswordChange,
+        .session_id = session_id,
+    };
+
+    struct ChangePasswordRequest request;
+
+    printf("Enter new password: ");
+    scanf("%s", request.new_password);
     write(sd, &header, sizeof(header));
     write(sd, &request, sizeof(request));
 
@@ -158,17 +285,36 @@ void addAccount(int session_id){
 
 int main(){
 
-    int session_id = login(Admin);
+    printf("Client started with pid %d\n", getpid());
+    int session_id = -1;
+    enum AccountType loginType;
+    login(&session_id, &loginType);
+
+
+
     if (session_id == -1)return 0;
 
     while(1){
         int operation = getNextOperation();
+        int sd = connectSocket(PORTNO);
+        if(sd == -1) exit(0);
         switch(operation){
             case 1:
-                balanceEnquiry(session_id);
+                balanceEnquiry(session_id, sd);break;
             case 2:
-                addAccount(session_id);
+                addUser(session_id, sd, false);break;
+            case 3:
+                addUser(session_id, sd, true);break;
+            case 4:
+                deposit(session_id, sd);break;
+            case 5:
+                withdraw(session_id, sd);break;
+            case 6:
+                changePassword(session_id, sd);break;
+            case 7:
+                exitSession(session_id, sd);break;
         }
+        close(sd);
     }
 
 

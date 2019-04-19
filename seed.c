@@ -4,40 +4,67 @@
 
 #include <fcntl.h>
 #include "util.h"
-
-#define ACCOUNT_DB_PATH "account_db.dat"
-#define TRANSACTION_DB_PATH "transaction_db.dat"
+#include "database.h"
 
 int main(){
     int account_fd = creat(ACCOUNT_DB_PATH, 0744);
+    int user_fd = creat(USER_DB_PATH, 0744);
     int transaction_fd = creat(TRANSACTION_DB_PATH, 0744);
+    int metadata_fd = creat(METADATA_DB_PATH, 0744);
 
-    if(account_fd == -1 || transaction_fd == -1){
+    if(metadata_fd == -1 || user_fd == -1 || account_fd == -1 || transaction_fd == -1){
         close(account_fd);
         close(transaction_fd);
+        close(metadata_fd);
+        close(metadata_fd);
         perror("creat(): ");
         return 0;
     }
 
-    struct Account a1 = {
+    struct Metadata metadata = {
+        .user_id = 0,
+        .account_id = 0,
+        .transaction_id = 0,
+    };
+
+    write(metadata_fd, &metadata, sizeof(metadata));
+
+    struct User u1 = {
         .accountType = Admin,
-        .balance = 0,
         .name = "Administrator",
         .email = "admin@gmail.com",
         .password = "admin@123",
+        .account_id = -1,
+        .id = -1
     };
 
-    struct Account a2 = {
+    struct User u2 = {
         .accountType = Normal,
-        .balance = 1000,
         .name = "Satvik Ramaprasad",
         .email = "satviksr@gmail.com",
         .password = "1234qwe",
+        .account_id = -1,
+        .id = -1
     };
 
-    write(account_fd, &a1, sizeof(a1));
-    write(account_fd, &a2, sizeof(a2));
+    struct User u3 = {
+        .accountType = Normal,
+        .name = "Biswesh Mohopatra",
+        .email = "biswesh@gmail.com",
+        .password = "1234qwe",
+        .account_id = -1,
+        .id = -1
+    };
+
+    int user_id;
+    createUser(&u1);
+    createUser(&u2);
+    u3.account_id = u2.account_id;
+    createUser(&u3);
 
     close(account_fd);
     close(transaction_fd);
+    close(metadata_fd);
+    close(metadata_fd);
+
 }
