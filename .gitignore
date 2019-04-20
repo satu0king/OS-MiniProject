@@ -1,2 +1,5 @@
 a.out
 *.dat
+bin/*
+build/*
+DB/*

@@ -577,7 +577,6 @@ void setup(){
 
     pthread_mutex_init(&sessions_lock, NULL);
 
-
 }
 
 
