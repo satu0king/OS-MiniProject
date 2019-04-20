@@ -7,6 +7,7 @@
 #include <stdbool.h>
 #include <netinet/in.h>
 #include "util.h"
+#include "client.h"
 
 
 #define NEW_LINE printf("\n")

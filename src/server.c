@@ -11,17 +11,13 @@
 #include <pthread.h>
 #include <time.h>
 #include "util.h"
+#include "server.h"
 #include "database.h"
 
 #define SESSION_COUNT 100
 #define NEW_LINE printf("\n")
 
 int sd;
-
-struct Session{
-    bool isActive;
-    struct User user;
-};
 
 struct Session sessions[SESSION_COUNT];
 pthread_mutex_t sessions_lock;

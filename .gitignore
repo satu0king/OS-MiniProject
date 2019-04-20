@@ -3,3 +3,4 @@ a.out
 bin/*
 build/*
 DB/*
+*.log
