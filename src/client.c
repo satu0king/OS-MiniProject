@@ -83,12 +83,12 @@ int getNextOperation(){
     printf("[3]  (Admin) View All Users\n");
     printf("[4]  (Admin) Delete User\n");
     printf("[5]  (Admin) Modify User\n");
-    printf("[6]  (User) Balance Enquiry\n");
-    printf("[7]  (User) Deposit amount\n");
-    printf("[8]  (User) Withdraw amount\n");
-    printf("[9]  (User) Change Password\n");
-    printf("[10] (User) View Details\n");
-    printf("[11] (User) Exit\n");
+    printf("[6]  (User)  Balance Enquiry\n");
+    printf("[7]  (User)  Deposit amount\n");
+    printf("[8]  (User)  Withdraw amount\n");
+    printf("[9]  (User)  Change Password\n");
+    printf("[10] (User)  View Details\n");
+    printf("[11] (User)  Exit\n");
     printf("Enter operation Id: ");
     int operation;
     scanf("%d", &operation);
