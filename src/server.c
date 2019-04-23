@@ -320,7 +320,7 @@ void transactionController(int nsd, int session_id){
 
     if(request.transactionType == Deposit)
       status = changeAccountBalance(account_id, amount);
-    else if(request.transactionType = Withdraw)
+    else if(request.transactionType == Withdraw)
       status = changeAccountBalance(account_id, -amount);
     else status = -1;
 
@@ -555,6 +555,7 @@ void* handle_request(void *socketDescriptor){
     }
 
     close(nsd);
+    return NULL;
 }
 
 void setup(){
@@ -587,7 +588,6 @@ int main(){
         pthread_t thread_id;
         // handle_request(&nsd);
         pthread_create(&thread_id, NULL, &handle_request, &nsd);
-        pthread_join(thread_id, NULL);
     }
 
     close(sd);

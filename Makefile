@@ -53,11 +53,5 @@ $(BUILD_DIR)/database.o: $(SRC_DIR)/util.c $(INCLUDE_DIR)/database.h $(INCLUDE_D
 
 build: $(BIN_DIR)/$(PROG_NAME)
 
-$(BIN_DIR)/$(PROG_NAME): $(BUILD_DIR)/turbine.o $(BUILD_DIR)/f16.o $(BUILD_DIR)/planet.o $(BUILD_DIR)/shark.o $(BUILD_DIR)/util/helper.o $(BUILD_DIR)/util/parser_util.o $(BUILD_DIR)/light.o $(BUILD_DIR)/parser.o $(BUILD_DIR)/main.o $(BUILD_DIR)/mesh.o $(BUILD_DIR)/view.o $(BUILD_DIR)/scene_manager.o $(BUILD_DIR)/model.o $(BUILD_DIR)/controller.o $(BUILD_DIR)/platform_mesh.o $(BUILD_DIR)/earth.o $(BUILD_DIR)/texture.o
-	$(LD) $(BUILD_DIR)/*.o $(BUILD_DIR)/util/*.o $(CFLAG) -o  $(BIN_DIR)/$(PROG_NAME)
-
-$(BUILD_DIR)/main.o: main.cpp $(INCLUDE_DIR)/$(INCLUDE_DIR)/controller.h $(INCLUDE_DIR)/util/opengl_init.h $(INCLUDE_DIR)/util/helper.h
-	$(CC) -c main.cpp -o $(BUILD_DIR)/main.o
-
 clean:
 	rm -f $(BIN_DIR)/$(SEED_PROGRAM) $(BIN_DIR)/$(CLIENT_PROGRAM) $(BIN_DIR)/$(SERVER_PROGRAM) $(BUILD_DIR)/*.o

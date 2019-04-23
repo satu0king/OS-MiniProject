@@ -60,10 +60,11 @@ void printAccount(struct Account *a){
 
 void printTransactions(struct Transaction *t, int count){
 
-    int len = 96;
+    int len = 119;
     repeat_char(len, '-');
-    printf("| %15s | %15s | %-20s | %15s | %15s |\n",
+    printf("| %15s | %20s | %15s | %-20s | %15s | %15s |\n",
     "Transaction Id",
+    "Transaction Date",
     "User Id",
     "Name",
     "Opening Balance",
@@ -71,8 +72,13 @@ void printTransactions(struct Transaction *t, int count){
     );
     repeat_char(len, '-');
     for(int i=0; i<count; i++){
-        printf("| %15d | %15d | %-20s | %15.2lf | %15.2lf |\n",
+
+            char timeBuffer[80];
+           struct tm *info = localtime( &t[i].date );
+           strftime(timeBuffer,80,"%x - %I:%M%p", info);
+            printf("| %15d | %20s | %15d | %-20s | %15.2lf | %15.2lf |\n",
             t[i].id,
+            timeBuffer,
             t[i].user_id,
             t[i].name,
             t[i].opening_balance,
